@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MD Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark" disabled>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-code: #f1f3f5;
+    --text: #1a1a2e;
+    --text-secondary: #495057;
+    --text-muted: #868e96;
+    --border: #dee2e6;
+    --accent: #4263eb;
+    --accent-light: #edf2ff;
+    --link: #3b5bdb;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
+    --radius: 8px;
+    --blockquote-border: #4263eb;
+    --blockquote-bg: #f8f9ff;
+    --table-stripe: #f8f9fa;
+    --hr-color: #dee2e6;
+    --drop-bg: rgba(66, 99, 235, 0.04);
+    --drop-border: #4263eb;
+    --kbd-bg: #f1f3f5;
+    --kbd-border: #ced4da;
+    --mark-bg: #fff3bf;
+  }
+
+  [data-theme="dark"] {
+    --bg: #141414;
+    --bg-secondary: #1c1c1c;
+    --bg-code: #1e1e1e;
+    --text: #f0f0f0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #666666;
+    --border: #2a2a2a;
+    --accent: #a78bfa;
+    --accent-light: #1e1a2e;
+    --link: #c4b5fd;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-lg: 0 10px 40px rgba(0,0,0,0.5);
+    --blockquote-border: #a78bfa;
+    --blockquote-bg: #1a1820;
+    --table-stripe: #1a1a1a;
+    --hr-color: #2a2a2a;
+    --drop-bg: rgba(167, 139, 250, 0.06);
+    --drop-border: #a78bfa;
+    --kbd-bg: #1e1e1e;
+    --kbd-border: #333333;
+    --mark-bg: #3a3520;
+  }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    transition: background 0.3s, color 0.3s;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 24px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--bg) 85%, transparent);
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+
+  .filename {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  .btn svg { width: 16px; height: 16px; }
+
+  /* ── Drop zone ── */
+  .dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 53px);
+    padding: 40px;
+    transition: all 0.3s;
+  }
+
+  .dropzone.hidden { display: none; }
+
+  .drop-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 520px;
+    padding: 60px 40px;
+    border: 2px dashed var(--border);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .drop-area:hover,
+  .drop-area.dragover {
+    border-color: var(--drop-border);
+    background: var(--drop-bg);
+    transform: scale(1.01);
+  }
+
+  .drop-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    color: var(--text-muted);
+    transition: color 0.3s, transform 0.3s;
+  }
+
+  .drop-area:hover .drop-icon,
+  .drop-area.dragover .drop-icon {
+    color: var(--accent);
+    transform: translateY(-4px);
+  }
+
+  .drop-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .drop-subtitle {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Article content ── */
+  .content-wrap {
+    display: none;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 48px 24px 120px;
+    animation: fadeIn 0.4s ease;
+    overflow: visible;
+  }
+
+  .content-wrap.visible {
+    display: block;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Typography ── */
+  .md-body h1, .md-body h2, .md-body h3,
+  .md-body h4, .md-body h5, .md-body h6 {
+    font-weight: 700;
+    line-height: 1.3;
+    margin-top: 2em;
+    margin-bottom: 0.6em;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  .md-body h1 { font-size: 2rem; margin-top: 0; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+  .md-body h2 { font-size: 1.5rem; padding-bottom: 0.25em; border-bottom: 1px solid var(--border); }
+  .md-body h3 { font-size: 1.25rem; }
+  .md-body h4 { font-size: 1.1rem; }
+  .md-body h5 { font-size: 1rem; }
+  .md-body h6 { font-size: 0.9rem; color: var(--text-secondary); }
+
+  .md-body p {
+    margin-bottom: 1.15em;
+  }
+
+  .md-body a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .md-body a:hover {
+    border-bottom-color: var(--link);
+  }
+
+  .md-body strong { font-weight: 600; }
+
+  .md-body img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    margin: 1em 0;
+  }
+
+  .md-body hr {
+    border: none;
+    height: 1px;
+    background: var(--hr-color);
+    margin: 2em 0;
+  }
+
+  /* ── Lists ── */
+  .md-body ul, .md-body ol {
+    padding-left: 1.8em;
+    margin-bottom: 1.15em;
+  }
+
+  .md-body li {
+    margin-bottom: 0.35em;
+  }
+
+  .md-body li > ul, .md-body li > ol {
+    margin-top: 0.35em;
+    margin-bottom: 0;
+  }
+
+  /* Task lists */
+  .md-body ul li input[type="checkbox"] {
+    margin-right: 6px;
+    accent-color: var(--accent);
+  }
+
+  /* ── Blockquote ── */
+  .md-body blockquote {
+    margin: 1.2em 0;
+    padding: 14px 20px;
+    border-left: 4px solid var(--blockquote-border);
+    background: var(--blockquote-bg);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--text-secondary);
+  }
+
+  .md-body blockquote p:last-child { margin-bottom: 0; }
+
+  /* ── Code ── */
+  .md-body code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.88em;
+    background: var(--bg-code);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .md-body pre {
+    position: relative;
+    margin: 1.4em 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-code);
+    border: 1px solid var(--border);
+  }
+
+  .md-body pre code {
+    display: block;
+    padding: 18px 20px;
+    overflow-x: auto;
+    background: transparent;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .code-lang {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    user-select: none;
+  }
+
+  .copy-btn {
+    position: absolute;
+    top: 6px;
+    right: 10px;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .md-body pre:hover .copy-btn { opacity: 1; }
+  .md-body pre:hover .code-lang { opacity: 0; }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ── Table (full-bleed) ── */
+  .table-wrap {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0 clamp(24px, 4vw, 80px);
+    margin: 1.4em 0;
+  }
+
+  .md-body table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+
+  .md-body th, .md-body td {
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+
+  .md-body th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+  }
+
+  .md-body tr:nth-child(even) {
+    background: var(--table-stripe);
+  }
+
+  /* ── Misc inline ── */
+  .md-body kbd {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    padding: 2px 6px;
+    background: var(--kbd-bg);
+    border: 1px solid var(--kbd-border);
+    border-radius: 4px;
+    box-shadow: 0 1px 0 var(--kbd-border);
+  }
+
+  .md-body mark {
+    background: var(--mark-bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .md-body details {
+    margin: 1em 0;
+    padding: 10px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .md-body details summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ── Full-page drag overlay ── */
+  .drag-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: color-mix(in srgb, var(--bg) 92%, transparent);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .drag-overlay.visible {
+    display: flex;
+  }
+
+  .drag-overlay-inner {
+    padding: 40px 60px;
+    border: 2px dashed var(--accent);
+    border-radius: 16px;
+    color: var(--accent);
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    .content-wrap { padding: 24px 16px 80px; }
+    .md-body h1 { font-size: 1.6rem; }
+    .md-body h2 { font-size: 1.3rem; }
+    .md-body pre code { font-size: 0.8rem; padding: 14px; }
+    .topbar { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo">MD Viewer</span>
+    <span class="filename" id="filename"></span>
+  </div>
+  <div class="topbar-right">
+    <button class="btn" id="openBtn" title="Открыть файл">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      Открыть
+    </button>
+    <button class="btn" id="themeBtn" title="Сменить тему">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- Drop zone -->
+<div class="dropzone" id="dropzone">
+  <div class="drop-area" id="dropArea">
+    <svg class="drop-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <polyline points="9 15 12 12 15 15"/>
+    </svg>
+    <div class="drop-title">Перетащите .md файл сюда</div>
+    <div class="drop-subtitle">или нажмите, чтобы выбрать</div>
+  </div>
+</div>
+
+<!-- Rendered content -->
+<article class="content-wrap" id="content">
+  <div class="md-body" id="mdBody"></div>
+</article>
+
+<!-- Drag overlay for when content is shown -->
+<div class="drag-overlay" id="dragOverlay">
+  <div class="drag-overlay-inner">Отпустите файл для загрузки</div>
+</div>
+
+<!-- Hidden file input -->
+<input type="file" id="fileInput" accept=".md,.markdown,.mdown,.mkd,.txt" hidden>
+
+<script>
+(function() {
+  const $ = id => document.getElementById(id);
+  const dropzone   = $('dropzone');
+  const dropArea   = $('dropArea');
+  const content    = $('content');
+  const mdBody     = $('mdBody');
+  const fileInput  = $('fileInput');
+  const filenameEl = $('filename');
+  const themeBtn   = $('themeBtn');
+  const openBtn    = $('openBtn');
+  const dragOverlay= $('dragOverlay');
+
+  // ── Marked config ──
+  marked.setOptions({
+    breaks: true,
+    gfm: true,
+    highlight: function(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    }
+  });
+
+  // Custom renderer for code blocks with lang label + copy button
+  const renderer = new marked.Renderer();
+  renderer.code = function(obj) {
+    const code = obj.text || obj;
+    const lang = obj.lang || '';
+    const highlighted = lang && hljs.getLanguage(lang)
+      ? hljs.highlight(code, { language: lang }).value
+      : hljs.highlightAuto(code).value;
+    const langLabel = lang ? `<span class="code-lang">${lang}</span>` : '';
+    return `<pre>${langLabel}<button class="copy-btn" onclick="copyCode(this)">Копировать</button><code class="hljs">${highlighted}</code></pre>`;
+  };
+  marked.use({ renderer });
+
+  // ── Copy code ──
+  window.copyCode = function(btn) {
+    const code = btn.parentElement.querySelector('code').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      btn.textContent = 'Скопировано!';
+      setTimeout(() => btn.textContent = 'Копировать', 1500);
+    });
+  };
+
+  // ── File handling ──
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const md = e.target.result;
+      mdBody.innerHTML = marked.parse(md);
+      // Wrap tables for horizontal scroll
+      mdBody.querySelectorAll('table').forEach(table => {
+        const wrap = document.createElement('div');
+        wrap.className = 'table-wrap';
+        table.parentNode.insertBefore(wrap, table);
+        wrap.appendChild(table);
+      });
+      filenameEl.textContent = file.name;
+      dropzone.classList.add('hidden');
+      content.classList.add('visible');
+      window.scrollTo({ top: 0 });
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  // ── Drop on drop area (initial screen) ──
+  dropArea.addEventListener('click', () => fileInput.click());
+  openBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+  });
+
+  dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+  dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+  dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+
+  // ── Global drag & drop (when content is shown) ──
+  let dragCounter = 0;
+  document.addEventListener('dragenter', e => {
+    e.preventDefault();
+    dragCounter++;
+    if (content.classList.contains('visible')) {
+      dragOverlay.classList.add('visible');
+    }
+  });
+  document.addEventListener('dragleave', e => {
+    e.preventDefault();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dragOverlay.classList.remove('visible');
+    }
+  });
+  document.addEventListener('dragover', e => e.preventDefault());
+  document.addEventListener('drop', e => {
+    e.preventDefault();
+    dragCounter = 0;
+    dragOverlay.classList.remove('visible');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+
+  // ── Theme toggle ──
+  const savedTheme = localStorage.getItem('md-viewer-theme');
+  if (savedTheme) setTheme(savedTheme);
+  else if (window.matchMedia('(prefers-color-scheme: dark)').matches) setTheme('dark');
+
+  themeBtn.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('md-viewer-theme', next);
+  });
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    $('hljs-light').disabled = theme === 'dark';
+    $('hljs-dark').disabled  = theme === 'light';
+    // swap icon
+    $('themeIcon').innerHTML = theme === 'dark'
+      ? '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>'
+      : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  }
+})();
+</script>
+</body>
+</html>
